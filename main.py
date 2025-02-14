@@ -226,9 +226,11 @@ class SelectFrames(QtWidgets.QWidget):
             base_name = os.path.basename(frame_path).replace(".jpg", "")
             base_name = base_name.split("_")[:-1]
             base_name = "_".join(base_name)
-            base_name = f"{base_name}_{str(self.frames_saved).zfill(3)}"
             dir_path = os.path.dirname(frame_path).split("/")[:-1]
             dir_path = "/".join(dir_path)
+            dir_path = os.path.join(dir_path, base_name)
+            base_name = f"{base_name}_{str(self.frames_saved).zfill(3)}"
+            
             labels_path = os.path.join(dir_path, "labels")
             frames_path = os.path.join(dir_path, "frames")
             draw_path = os.path.join(dir_path, "draw")
