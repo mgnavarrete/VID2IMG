@@ -1,0 +1,6 @@
+tk
+PyQt5
+Pillow
+imageio
+tqdm
+cvat-sdk
