@@ -228,7 +228,6 @@ class SelectFrames(QtWidgets.QWidget):
             base_name = "_".join(base_name)
             dir_path = os.path.dirname(frame_path).split("/")[:-1]
             dir_path = "/".join(dir_path)
-            dir_path = os.path.join(dir_path, base_name)
             base_name = f"{base_name}_{str(self.frames_saved).zfill(3)}"
             
             labels_path = os.path.join(dir_path, "labels")
