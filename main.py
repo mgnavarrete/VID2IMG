@@ -580,74 +580,29 @@ class MainWindow(QtWidgets.QWidget):
         frame_dir = os.path.join(path_dir, "temp")
         os.makedirs(frame_dir, exist_ok=True)
 
-        # Cargar datos SRT
-        srt_path = self.video_path.replace(".MP4", ".SRT")
-        srt_data = []
+        # Obtener el número total de frames
+        num_frames = cap.count_frames()
         
-        with open(srt_path, "r") as f:
-            lines = f.readlines()
-            for i in range(0, len(lines), 6):  # Asumiendo que cada entrada tiene 5 líneas
-                entry = [lines[i].strip(), lines[i+1].strip(), lines[i+2].strip(), lines[i+3].strip(), lines[i+4].strip()]
-                pattern = r'\[latitude: ([\d\.-]+)\] \[longitude: ([\d\.-]+)\] \[rel_alt: ([\d\.-]+) abs_alt: ([\d\.-]+)\] \[gb_yaw: ([\d\.-]+) gb_pitch: ([\d\.-]+) gb_roll: ([\d\.-]+)\]'
-                match = re.search(pattern, lines[i+4])
-                if match:
-                    latitude, longitude, rel_alt, abs_alt, gb_yaw, gb_pitch, gb_roll = match.groups()
-                    entry.append([latitude, longitude, rel_alt, abs_alt, gb_yaw, gb_pitch, gb_roll])
-                srt_data.append(entry)
+        self.progress_label.setText(f"Capturando frames de {os.path.basename(self.video_path)}")  # Actualizar el texto de la barra de progreso
+        self.progress_bar.setRange(0, num_frames)  # Establecer el rango de la barra de progreso
+        self.progress_label.show()  # Mostrar la barra de progreso al iniciar el proceso
+        self.progress_bar.show()  # Mostrar la barra de progreso al iniciar el proceso
 
-        
-        # Extraer información inicial y final
-        start_data = srt_data[0]
-        end_data = srt_data[-1]
-        lat1, lon1 = map(float, start_data[-1][:2])
-        lat2, lon2 = map(float, end_data[-1][:2])
+        frame_count = 0
+        for frame_index in range(num_frames):
+            frame = cap.get_data(frame_index)  # Obtener el frame
 
-        # Calcular distancia total recorrida
-        total_distance = self.haversine(lat1, lon1, lat2, lon2)
+            if frame is not None:
+                frame_filename = os.path.join(frame_dir, f"{base_name}_{frame_count:04d}.jpg")
+                imageio.imwrite(frame_filename, frame)  # Guardar el frame
+                frame_count += 1
 
-        # Calcular tiempo total y velocidad promedio
-        time_format = "%Y-%m-%d %H:%M:%S.%f"
-        start_time = datetime.strptime(start_data[3], time_format)
-        end_time = datetime.strptime(end_data[3], time_format)
-        time_diff = (end_time - start_time).total_seconds()
-        velocity = total_distance / time_diff  # km/s
-
-        # Configurar captura basada en distancia recorrida
-        prev_lat, prev_lon = lat1, lon1
-        min_distance = 0
-        frame_count = 1
-        self.progress_label.setText(f"Pre-proceso de {os.path.basename(self.video_path)}")  # Actualizar el texto de la barra de progreso
-        self.progress_bar.setRange(0, len(srt_data))  # Establecer el rango de la barra de progreso
-        self.progress_label.show()  # Mostrar la barra de progreso al iniciar el preproceso
-        self.progress_bar.show()  # Mostrar la barra de progreso al iniciar el preproceso
-        
-        for i, entry in enumerate(srt_data):            
-            lat, lon = map(float, entry[-1][:2])
-            distance = self.haversine(prev_lat, prev_lon, lat, lon)
-            
-            if distance >= min_distance:
-                # Convertir timestamp a milisegundos y capturar el frame
-                timestamp_str = entry[3]
-                timestamp = datetime.strptime(timestamp_str, time_format)
-                time_elapsed = (timestamp - start_time).total_seconds()
-                
-                # Leer el frame correspondiente
-                frame_index = int(time_elapsed * cap.get_meta_data()['fps'])  # Calcular el índice del frame
-                frame = cap.get_data(frame_index)  # Obtener el frame
-
-                if frame is not None:
-                    frame_filename = os.path.join(frame_dir, f"{base_name}_{frame_count:04d}.jpg")
-                    imageio.imwrite(frame_filename, frame)  # Guardar el frame
-                    frame_count += 1
-                    prev_lat, prev_lon = lat, lon
-
-                self.progress_bar.setValue(i+1)  # Actualizar la barra de progreso
+            self.progress_bar.setValue(frame_index + 1)  # Actualizar la barra de progreso
 
         cap.close()  # Cerrar el lector de video
-        self.log_text_edit.append(f"Pre-proceso Completado")
+        self.log_text_edit.append(f"Captura de frames completada")
         self.progress_label.hide()
         self.progress_bar.hide()
-    
     
     
     
