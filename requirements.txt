@@ -4,3 +4,5 @@ Pillow
 imageio
 tqdm
 cvat-sdk
+imageio[ffmpeg]
+

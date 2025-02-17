@@ -93,6 +93,17 @@ class SelectFrames(QtWidgets.QWidget):
         self.frame_layout.addWidget(self.frame_label, alignment=QtCore.Qt.AlignCenter)  # Asegurar que el QLabel esté centrado
         layout.addLayout(self.frame_layout)
 
+        self.progress_layout = QtWidgets.QHBoxLayout()
+    
+        
+        self.progress_bar = QtWidgets.QProgressBar(self)
+        self.progress_bar.setMinimum(0)
+        self.progress_bar.setMaximum(0)
+        self.progress_bar.setValue(0)
+        self.progress_layout.addWidget(self.progress_bar)
+        layout.addLayout(self.progress_layout)
+
+
         self.select_label = QtWidgets.QLabel("Selecciona el tipo de hallazgo:", self)
         layout.addWidget(self.select_label)
         
@@ -105,6 +116,7 @@ class SelectFrames(QtWidgets.QWidget):
         self.select_layout.addWidget(self.select_dropdown)
 
 
+    
         self.save_button = QtWidgets.QPushButton("Guardar Hallazgo", self)
         self.save_button.clicked.connect(self.save_hallazgo)
         self.select_layout.addWidget(self.save_button)
@@ -278,6 +290,7 @@ class SelectFrames(QtWidgets.QWidget):
         """Carga una lista de frames."""
         self.frames = frames
         if self.frames:
+            self.progress_bar.setMaximum(len(self.frames))
             self.show_frame(0)
 
     def show_frame(self, index):
@@ -294,7 +307,8 @@ class SelectFrames(QtWidgets.QWidget):
             # Escalar el pixmap para que se ajuste al tamaño de la etiqueta
             self.scaled_pixmap = pixmap.scaled(self.frame_label.size(), QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
             self.frame_label.setPixmap(self.scaled_pixmap)
-            
+            self.progress_bar.setValue(index)
+
             # Ajustar el tamaño de la ventana al tamaño de la imagen
             self.resize(self.scaled_pixmap.size())
 
