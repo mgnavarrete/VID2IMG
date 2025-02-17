@@ -20,6 +20,7 @@ import shutil
 from cvat_sdk import make_client, models
 from cvat_sdk.core.proxies.tasks import ResourceType, Task
 import zipfile
+import subprocess
 
 
 class SelectFrames(QtWidgets.QWidget):
@@ -94,7 +95,7 @@ class SelectFrames(QtWidgets.QWidget):
         layout.addLayout(self.frame_layout)
 
         self.progress_layout = QtWidgets.QHBoxLayout()
-    
+     
         
         self.progress_bar = QtWidgets.QProgressBar(self)
         self.progress_bar.setMinimum(0)
@@ -583,13 +584,31 @@ class MainWindow(QtWidgets.QWidget):
         a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
         c = 2 * atan2(sqrt(a), sqrt(1 - a))
         return R * c  # Distancia en km
-
-
+    def get_lat_lon(self, index, srt_lines):
+         # Ahora srt_lines es una lista de listas, donde cada sublista contiene las líneas de una entrada
+        info = srt_lines[index][-1].split(" ")
+        lat = info[18][:-1]
+        lon = info[20][:-1]
+        print(lat, lon)
+        return lat, lon
+    
+    def decimal_to_dms(self, decimal, is_latitude=True):
+        direction = "N" if is_latitude else "E"
+        if decimal < 0:
+            direction = "S" if is_latitude else "W"
+            decimal = abs(decimal)
+        
+        degrees = int(decimal)
+        minutes = int((decimal - degrees) * 60)
+        seconds = (decimal - degrees - minutes / 60) * 3600
+    
+        return f"{degrees} deg {minutes}' {seconds:.2f}\" {direction}"
     def get_frames(self):
         cap = imageio.get_reader(self.video_path)  # Usar imageio para leer el video
         path_dir = os.path.dirname(self.video_path)
         base_name = os.path.basename(self.video_path)
         base_name = base_name.replace(".MP4", "")
+        srt_file = os.path.join(path_dir, base_name + ".SRT")
         path_dir = os.path.join(path_dir, base_name)
         frame_dir = os.path.join(path_dir, "temp")
         os.makedirs(frame_dir, exist_ok=True)
@@ -602,14 +621,53 @@ class MainWindow(QtWidgets.QWidget):
         self.progress_label.show()  # Mostrar la barra de progreso al iniciar el proceso
         self.progress_bar.show()  # Mostrar la barra de progreso al iniciar el proceso
 
+        # Leer el archivo SRT y extraer latitud y longitud
+        with open(srt_file, 'r') as file:
+            srt_lines = []
+            current_entry = []
+            for line in file:
+                if line.strip():  # Si la línea no está vacía
+                    current_entry.append(line.strip())
+                else:
+                    if current_entry:  # Si hay una entrada actual
+                        srt_lines.append(current_entry)
+                        current_entry = []
+            if current_entry:  # Añadir la última entrada si existe
+                srt_lines.append(current_entry)
+        
+
+       
+        
         frame_count = 0
         for frame_index in range(num_frames):
             frame = cap.get_data(frame_index)  # Obtener el frame
-
+            lat, lon = self.get_lat_lon(frame_index, srt_lines)
             if frame is not None:
                 frame_filename = os.path.join(frame_dir, f"{base_name}_{frame_count:04d}.jpg")
-                imageio.imwrite(frame_filename, frame)  # Guardar el frame
+                imageio.imwrite(frame_filename, frame)  
+                
+                # Guardar Metadata usando Exiftool y subprocesos
+                try:
+                    # Convertir latitud y longitud de decimal a DMS
+                    lat_dms = self.decimal_to_dms(float(lat), True)
+                    lon_dms = self.decimal_to_dms(float(lon), False)
+                    
+                    # print(f"Latitud: {lat_dms}, Longitud: {lon_dms}, Archivo: {frame_filename}")
+                    subprocess.run([
+                        "exiftool",
+                        "-overwrite_original",
+                        f"-GPSLatitude={lat_dms}",
+                        f"-GPSLatitudeRef={lat_dms[-1]}",  # Último carácter es la dirección
+                        f"-GPSLongitude={lon_dms}",
+                        f"-GPSLongitudeRef={lon_dms[-1]}",  # Último carácter es la dirección
+                        frame_filename
+                    ], check=True)
+                except subprocess.CalledProcessError as e:
+                    print(f"Error al guardar metadata: {e}")
+                
+                
                 frame_count += 1
+                
 
             self.progress_bar.setValue(frame_index + 1)  # Actualizar la barra de progreso
 
